@@ -63,6 +63,55 @@ public class DrugExporterWorkFlow
 		return classifier;
 		
 	}
+	
+	
+	
+	public void CalculateAllMatrix(double a, double b, double c, double d) {
+		
+		
+		double sensitivity = a / (a+b);
+	    double specificity = d / (c+d);
+	    double postive_likelihood_rate = sensitivity /  (1 - specificity);
+	    double negative_likelihood_rate = (1 - sensitivity) / specificity;
+	    double postive_predictive_value = a / (a + c);
+	    double negative_predictive_value = d / (b + d);
+	    double accuracy = (a+d)/(a+b+c+d);
+	    
+	    System.out.println("====================================================");
+	    System.out.println(String.format("sensitivity               = %.4f", sensitivity));
+	    System.out.println(String.format("specificity               = %.4f", specificity));
+	    System.out.println(String.format("postive_likelihood_rate   = %.4f", postive_likelihood_rate));
+	    System.out.println(String.format("negative_likelihood_rate  = %.4f", negative_likelihood_rate));
+	    System.out.println(String.format("postive_predictive_value  = %.4f", postive_predictive_value));
+	    System.out.println(String.format("negative_predictive_value = %.4f", negative_predictive_value));
+	    System.out.println(String.format("accuracy                  = %.4f", accuracy));
+	    System.out.println("====================================================");
+	    
+	}
+	
+	
+	public void PerformTestEvaluation(Instances dataset, Instances testset, Classifier clf) throws Exception {
+		dataset.setClass(dataset.attribute(dataset.numAttributes()-1));
+		testset.setClass(testset.attribute(testset.numAttributes()-1));
+		
+		Evaluation evaluation = new Evaluation(testset);
+		
+		evaluation.evaluateModel(clf, testset);
+		
+		
+		System.out.println("====================================================");
+		System.out.println("Evaluation result on testing set:");
+		System.out.println(evaluation.toSummaryString());
+		
+		double[][] confusionmatrix = evaluation.confusionMatrix();
+		
+	    System.out.println(confusionmatrix[0][0]); // TP
+	    System.out.println(confusionmatrix[0][1]); // FP
+	    System.out.println(confusionmatrix[1][0]); // FN
+	    System.out.println(confusionmatrix[1][1]); // TN
+	    
+	    System.out.println("====================================================");
+	}
 
 	/**
 	 * running cost sensitive based on given dataset, cost matrix and classifier
@@ -85,7 +134,7 @@ public class DrugExporterWorkFlow
 		classifier.setClassifier(rf);
 		
 		// build classifier
-//		classifier.buildClassifier(dataset);
+		classifier.buildClassifier(dataset);
 			
 		// do evaluation on current dataset and classifier
 		Evaluation evaluation = new Evaluation(dataset);
@@ -96,16 +145,27 @@ public class DrugExporterWorkFlow
 	    System.out.println(evaluation.toSummaryString());
 	    System.out.println("====================================================");
 	    
-	    double[][] confusionmatrix = evaluation.confusionMatrix();
-	    System.out.println(confusionmatrix[0][0]); // TP
-	    System.out.println(confusionmatrix[0][1]); // FP
-	    System.out.println(confusionmatrix[1][0]); // FN
-	    System.out.println(confusionmatrix[1][1]); // TN
 	    
-	    double auroc = evaluation.areaUnderROC(dataset.numAttributes()-1);
+	    
+	    
+	    double[][] confusionmatrix = evaluation.confusionMatrix();
+	    double a = confusionmatrix[0][0];
+	    double c = confusionmatrix[0][1];
+	    double b = confusionmatrix[1][0];
+	    double d = confusionmatrix[1][1];
+//	    System.out.println(confusionmatrix[0][0]); // TP
+//	    System.out.println(confusionmatrix[0][1]); // FP
+//	    System.out.println(confusionmatrix[1][0]); // FN
+//	    System.out.println(confusionmatrix[1][1]); // TN
+	    CalculateAllMatrix(a,b,c,d);
+	    
+	    
+	    
+	    
+//	    double auroc = evaluation.areaUnderROC(0);
 	    String detailedMatrix = evaluation.toClassDetailsString();
 	    
-	    System.out.println(String.format("AUROC is => %d", auroc));
+//	    System.out.println(String.format("AUROC is => %d", auroc));
 	    System.out.println(String.format("detailed matrix is => %s", detailedMatrix));
 	    
 		return classifier;
@@ -162,17 +222,24 @@ public class DrugExporterWorkFlow
     {
     	
     		DrugExporterWorkFlow dewf = new DrugExporterWorkFlow();
+    		String current_dir = System.getProperty("user.dir");
     		try {
-				Instances dataset = dewf.ConvertCSVToInstances("/Users/xuan/Desktop/TestingFile.csv");
+				Instances dataset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, "TestFile.csv"));
 				Instances dataset_filtered = dewf.AttributeFilteringEngineering(dataset);
 				
 				
 				// set cost matrix
 				CostMatrix costmatrix = new CostMatrix(2);
-				costmatrix.setCell(0, 1, 1);
-				costmatrix.setCell(1, 0, 1);
+				costmatrix.setCell(0, 1, 1.0);
+				costmatrix.setCell(1, 0, 1.0);
 				
 				Classifier classified = dewf.GenerateCostSensitiveClassifier(dataset_filtered,costmatrix);
+				
+				
+				// do testing 
+				Instances trainingset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, "TestFileTesting.csv"));
+				dewf.PerformTestEvaluation(dataset_filtered, trainingset, classified);
+				
 				
 				
 			} catch (IOException e) {

@@ -68,26 +68,36 @@ public class DrugExporterWorkFlow
 	}
 	
 	
-	
+	/**
+	 * 
+	 * @param a true positive TP
+	 * @param b false negative FN
+	 * @param c false positive FP
+	 * @param d true negative TN
+	 */
 	public void CalculateAllMatrix(double a, double b, double c, double d) {
 		
 		
-		double sensitivity = a / (a+b);
+		double sensitivity = a / (a+b); // aka true_positive_rate
 	    double specificity = d / (c+d);
 	    double postive_likelihood_rate = sensitivity /  (1 - specificity);
 	    double negative_likelihood_rate = (1 - sensitivity) / specificity;
-	    double postive_predictive_value = a / (a + c);
+	    double positive_predictive_value = a / (a + c);
 	    double negative_predictive_value = d / (b + d);
 	    double accuracy = (a+d)/(a+b+c+d);
+	    double mcc = (a * d - c * b) / Math.sqrt((a+c)*(a+b)*(d+c)*(d+b));
+	    double f1  = 2*((positive_predictive_value * sensitivity)/(positive_predictive_value + sensitivity));
 	    
 	    System.out.println("====================================================");
 	    System.out.println(String.format("sensitivity               = %.4f", sensitivity));
 	    System.out.println(String.format("specificity               = %.4f", specificity));
 	    System.out.println(String.format("postive_likelihood_rate   = %.4f", postive_likelihood_rate));
 	    System.out.println(String.format("negative_likelihood_rate  = %.4f", negative_likelihood_rate));
-	    System.out.println(String.format("postive_predictive_value  = %.4f", postive_predictive_value));
+	    System.out.println(String.format("positive_predictive_value = %.4f", positive_predictive_value));
 	    System.out.println(String.format("negative_predictive_value = %.4f", negative_predictive_value));
 	    System.out.println(String.format("accuracy                  = %.4f", accuracy));
+	    System.out.println(String.format("MCC 						= %.4f", mcc));
+	    System.out.println(String.format("F1 score 					= %.4f", f1));
 	    System.out.println("====================================================");
 	    
 	}
@@ -122,7 +132,7 @@ public class DrugExporterWorkFlow
 	    double test_d = confusionmatrix[1][1];
 	    System.out.println("True Positive: " + confusionmatrix[0][0] + "| False Positive: " + confusionmatrix[0][1] ); // TP
 //	    System.out.println(); // FP
-	    System.out.println("False Negative: " +confusionmatrix[1][0] + "| True Negative: " +confusionmatrix[1][1]); // FN
+	    System.out.println("False Negative: " +confusionmatrix[1][0] + "| True Negative: " + confusionmatrix[1][1]); // FN
 //	    System.out.println(); // TN
 	    CalculateAllMatrix(test_a,test_b,test_c,test_d);
 	    System.out.println("====================================================");
@@ -145,6 +155,13 @@ public class DrugExporterWorkFlow
 		System.out.println("====================================================");
 		System.out.println("Instance statistics:");
 		System.out.println(attStats.toString());
+		String attstats = dataset.attribute(dataset.numAttributes()-1).toString();
+		String[] attstats_split = attstats.replace("@attribute Class {", "").replace("}", "").split(",");
+		boolean reverse = false;
+		if(attstats_split[0].contains("non-")) {
+			reverse = true;
+		}
+			
 		
 		
 		// create new attribute order
@@ -188,7 +205,18 @@ public class DrugExporterWorkFlow
 //	    System.out.println(); // FP
 	    System.out.println("False Negative: " +confusionmatrix[1][0] + "| True Negative: " +confusionmatrix[1][1]); // FN
 //	    System.out.println(); // TN
-	    CalculateAllMatrix(a,b,c,d);
+	    if (reverse == true) {
+	    	// negative class is at front, change the order
+	    	//  true negative (d) => true positive; 
+	    	//  false negative (b) => false positive;
+	    	// true positive (a) => true negative;
+	    	// false positive (c) => false negative);
+	    	CalculateAllMatrix(d,c,b,a);
+	    }else {
+	    	// positive class is at front, don't change order 
+	    	CalculateAllMatrix(a,b,c,d);
+	    }
+	    
 	    
 	    
 	    
@@ -268,9 +296,9 @@ public class DrugExporterWorkFlow
 			weka.core.SerializationHelper.write(String.format("%s/model/%s.model", current_dir,"BCRPsubstrate"), classified);
 			
 			// do testing 
-			Instances trainingset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, 
-					"Canalicular_multispecific_organic_anion_transporter_1_MRP2_non_duplicate_substrate_3DFile_3D_descriptor_value_testing.csv"));
-			dewf.PerformTestEvaluation(dataset_filtered, trainingset, classified);
+//			Instances trainingset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, 
+//					"Canalicular_multispecific_organic_anion_transporter_1_MRP2_non_duplicate_substrate_3DFile_3D_descriptor_value_testing.csv"));
+//			dewf.PerformTestEvaluation(dataset_filtered, trainingset, classified);
 			
 			
 			

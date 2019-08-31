@@ -9,6 +9,9 @@ import weka.classifiers.CostMatrix;
 import weka.classifiers.Evaluation;
 import weka.classifiers.meta.CostSensitiveClassifier;
 import weka.classifiers.trees.RandomForest;
+import weka.core.Attribute;
+import weka.core.AttributeStats;
+import weka.core.FastVector;
 import weka.core.Instances;
 import weka.core.converters.CSVLoader;
 import weka.filters.Filter;
@@ -102,14 +105,26 @@ public class DrugExporterWorkFlow
 		System.out.println("====================================================");
 		System.out.println("Evaluation result on testing set:");
 		System.out.println(evaluation.toSummaryString());
+		String detailedMatrix = evaluation.toClassDetailsString();
+		System.out.println("====================================================");
+		AttributeStats attStats = testset.attributeStats(testset.numAttributes()-1);
+		System.out.println("Instance statistics:");
+		System.out.println(attStats.toString());
 		
+		
+//	    System.out.println(String.format("AUROC is => %d", auroc));
+	    System.out.println(String.format("detailed matrix is => %s", detailedMatrix));
 		double[][] confusionmatrix = evaluation.confusionMatrix();
 		
-	    System.out.println(confusionmatrix[0][0]); // TP
-	    System.out.println(confusionmatrix[0][1]); // FP
-	    System.out.println(confusionmatrix[1][0]); // FN
-	    System.out.println(confusionmatrix[1][1]); // TN
-	    
+		double test_a = confusionmatrix[0][0];
+		double test_c = confusionmatrix[0][1];
+		double test_b = confusionmatrix[1][0];
+	    double test_d = confusionmatrix[1][1];
+	    System.out.println("True Positive: " + confusionmatrix[0][0] + "| False Positive: " + confusionmatrix[0][1] ); // TP
+//	    System.out.println(); // FP
+	    System.out.println("False Negative: " +confusionmatrix[1][0] + "| True Negative: " +confusionmatrix[1][1]); // FN
+//	    System.out.println(); // TN
+	    CalculateAllMatrix(test_a,test_b,test_c,test_d);
 	    System.out.println("====================================================");
 	}
 
@@ -125,6 +140,22 @@ public class DrugExporterWorkFlow
 		
 		
 		dataset.setClass(dataset.attribute(dataset.numAttributes()-1));
+		System.out.println(dataset.attribute(dataset.numAttributes()-1).toString());
+		AttributeStats attStats = dataset.attributeStats(dataset.numAttributes()-1);
+		System.out.println("====================================================");
+		System.out.println("Instance statistics:");
+		System.out.println(attStats.toString());
+		
+		
+		// create new attribute order
+//		FastVector class_vec = new FastVector(2);
+//		class_vec.addElement("substrate");
+//		class_vec.addElement("non-substrate");
+//		Attribute reordered_attribute = new Attribute("Class",class_vec);
+//		dataset.deleteAttributeAt(dataset.numAttributes() - 1);
+//		dataset.insertAttributeAt(reordered_attribute, dataset.numAttributes());
+//		dataset.setClass(dataset.attribute(dataset.numAttributes()-1));
+//		System.out.println(dataset.classAttribute().toString());
 		
 		CostSensitiveClassifier classifier = new CostSensitiveClassifier();
 		classifier.setCostMatrix(cm);
@@ -153,10 +184,10 @@ public class DrugExporterWorkFlow
 	    double c = confusionmatrix[0][1];
 	    double b = confusionmatrix[1][0];
 	    double d = confusionmatrix[1][1];
-//	    System.out.println(confusionmatrix[0][0]); // TP
-//	    System.out.println(confusionmatrix[0][1]); // FP
-//	    System.out.println(confusionmatrix[1][0]); // FN
-//	    System.out.println(confusionmatrix[1][1]); // TN
+	    System.out.println("True Positive: " + confusionmatrix[0][0] + "| False Positive: " + confusionmatrix[0][1] ); // TP
+//	    System.out.println(); // FP
+	    System.out.println("False Negative: " +confusionmatrix[1][0] + "| True Negative: " +confusionmatrix[1][1]); // FN
+//	    System.out.println(); // TN
 	    CalculateAllMatrix(a,b,c,d);
 	    
 	    
@@ -220,34 +251,35 @@ public class DrugExporterWorkFlow
 	
     public static void main( String[] args )
     {
-    	
-    		DrugExporterWorkFlow dewf = new DrugExporterWorkFlow();
-    		String current_dir = System.getProperty("user.dir");
-    		try {
-				Instances dataset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, "TestFile.csv"));
-				Instances dataset_filtered = dewf.AttributeFilteringEngineering(dataset);
-				
-				
-				// set cost matrix
-				CostMatrix costmatrix = new CostMatrix(2);
-				costmatrix.setCell(0, 1, 1.0);
-				costmatrix.setCell(1, 0, 1.0);
-				
-				Classifier classified = dewf.GenerateCostSensitiveClassifier(dataset_filtered,costmatrix);
-				
-				
-				// do testing 
-				Instances trainingset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, "TestFileTesting.csv"));
-				dewf.PerformTestEvaluation(dataset_filtered, trainingset, classified);
-				
-				
-				
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+    	DrugExporterWorkFlow dewf = new DrugExporterWorkFlow();
+		String current_dir = System.getProperty("user.dir");
+		try {
+			Instances dataset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, 
+					"Canalicular_multispecific_organic_anion_transporter_1_MRP2_non_duplicate_substrate_3DFile_3D_descriptor_value_training.csv"));
+			Instances dataset_filtered = dewf.AttributeFilteringEngineering(dataset);
+			
+			
+			// set cost matrix
+			CostMatrix costmatrix = new CostMatrix(2);
+			costmatrix.setCell(0, 1, 1.0);
+			costmatrix.setCell(1, 0, 3.0);
+			
+			Classifier classified = dewf.GenerateCostSensitiveClassifier(dataset_filtered,costmatrix);
+			weka.core.SerializationHelper.write(String.format("%s/model/%s.model", current_dir,"BCRPsubstrate"), classified);
+			
+			// do testing 
+			Instances trainingset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, 
+					"Canalicular_multispecific_organic_anion_transporter_1_MRP2_non_duplicate_substrate_3DFile_3D_descriptor_value_testing.csv"));
+			dewf.PerformTestEvaluation(dataset_filtered, trainingset, classified);
+			
+			
+			
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
     }
 }

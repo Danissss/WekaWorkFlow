@@ -283,22 +283,44 @@ public class DrugExporterWorkFlow
 		String current_dir = System.getProperty("user.dir");
 		try {
 			Instances dataset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, 
-					"Canalicular_multispecific_organic_anion_transporter_1_MRP2_non_duplicate_substrate_3DFile_3D_descriptor_value_training.csv"));
+					"BCRP_binding_dataset_3DFile_3D_descriptor_value_training.csv"));
 			Instances dataset_filtered = dewf.AttributeFilteringEngineering(dataset);
 			
 			
 			// set cost matrix
 			CostMatrix costmatrix = new CostMatrix(2);
-			costmatrix.setCell(0, 1, 1.0);
-			costmatrix.setCell(1, 0, 3.0);
+			costmatrix.setCell(0, 1, 25.0);
+			costmatrix.setCell(1, 0, 1.0);
 			
 			Classifier classified = dewf.GenerateCostSensitiveClassifier(dataset_filtered,costmatrix);
+			
+			
+//			System.exit(0);
+//			
+//			System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+//			System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+//			CostMatrix costmatrix2 = new CostMatrix(2);
+//			costmatrix2.setCell(0, 1, 20.0);
+//			costmatrix2.setCell(1, 0, 1.0);
+//			Classifier classified2 = dewf.GenerateCostSensitiveClassifier(dataset_filtered,costmatrix2);
+//			
+//			System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+//			System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+//			CostMatrix costmatrix3 = new CostMatrix(2);
+//			costmatrix3.setCell(0, 1, 10.0);
+//			costmatrix3.setCell(1, 0, 1.0);
+//			Classifier classified3 = dewf.GenerateCostSensitiveClassifier(dataset_filtered,costmatrix3);
+			
+			
+			
+			
+			
 			weka.core.SerializationHelper.write(String.format("%s/model/%s.model", current_dir,"BCRPsubstrate"), classified);
 			
 			// do testing 
-//			Instances trainingset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, 
-//					"Canalicular_multispecific_organic_anion_transporter_1_MRP2_non_duplicate_substrate_3DFile_3D_descriptor_value_testing.csv"));
-//			dewf.PerformTestEvaluation(dataset_filtered, trainingset, classified);
+			Instances trainingset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, 
+					"BCRP_binding_dataset_3DFile_3D_descriptor_value_testing.csv"));
+			dewf.PerformTestEvaluation(dataset_filtered, trainingset, classified);
 			
 			
 			

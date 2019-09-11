@@ -2,6 +2,8 @@ package WishartLab.WekaWorkFlow;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Random;
 
 import weka.classifiers.Classifier;
@@ -17,6 +19,7 @@ import weka.core.converters.CSVLoader;
 import weka.filters.Filter;
 import weka.filters.unsupervised.attribute.RemoveType;
 import weka.filters.unsupervised.attribute.RemoveUseless;
+import weka.filters.unsupervised.attribute.SwapValues;
 
 /**
  * Hello world!
@@ -103,39 +106,117 @@ public class DrugExporterWorkFlow
 	}
 	
 	
-	public void PerformTestEvaluation(Instances dataset, Instances testset, Classifier clf) throws Exception {
+	public void PerformTestEvaluation(Instances dataset, Instances testset, Classifier clf, double cost) throws Exception {
 		dataset.setClass(dataset.attribute(dataset.numAttributes()-1));
 		testset.setClass(testset.attribute(testset.numAttributes()-1));
+		// reorder the attribute
+		testset = ReorderInstances(testset);
 		
-		Evaluation evaluation = new Evaluation(testset);
-		
-		evaluation.evaluateModel(clf, testset);
-		
-		
-		System.out.println("====================================================");
-		System.out.println("Evaluation result on testing set:");
-		System.out.println(evaluation.toSummaryString());
-		String detailedMatrix = evaluation.toClassDetailsString();
 		System.out.println("====================================================");
 		AttributeStats attStats = testset.attributeStats(testset.numAttributes()-1);
 		System.out.println("Instance statistics:");
 		System.out.println(attStats.toString());
 		
 		
-//	    System.out.println(String.format("AUROC is => %d", auroc));
-	    System.out.println(String.format("detailed matrix is => %s", detailedMatrix));
-		double[][] confusionmatrix = evaluation.confusionMatrix();
+//		Evaluation evaluation = new Evaluation(testset);
 		
-		double test_a = confusionmatrix[0][0];
-		double test_c = confusionmatrix[0][1];
-		double test_b = confusionmatrix[1][0];
-	    double test_d = confusionmatrix[1][1];
-	    System.out.println("True Positive: " + confusionmatrix[0][0] + "| False Positive: " + confusionmatrix[0][1] ); // TP
+//		evaluation.evaluateModel(clf, testset);
+//		System.out.println(1/cost);
+		
+		int TP = 0;
+		int FN = 0;
+		int TN = 0;
+		int FP = 0;
+		
+		for(int i = 0; i < testset.size(); i++) {
+			double original_class = testset.instance(i).classValue();
+			String original_class_string = testset.instance(i).stringValue(testset.numAttributes()-1);
+//			System.out.println(original_class +":" + original_class_string);
+			double[] resultList = clf.distributionForInstance(testset.instance(i));
+			System.out.println(Arrays.toString(resultList));
+			double resultList2 = clf.classifyInstance(testset.instance(i));
+			System.out.println(resultList2 + ":" + original_class_string);
+			if (resultList[0] > (1/cost)) {
+				// predict as true
+				if(!original_class_string.contains("non-")) {
+					// True Positive
+					TP++;
+				}else {
+					// False Negative
+					FN++;
+				}
+				
+			}else {
+//				System.out.println("false: "+ resultList[0]);
+				if(original_class_string.contains("non-")) {
+					// True Negative
+					TN++;
+					
+				}else {
+					// False Positive
+					FP++;
+				}
+			}
+		}
+		
+		
+		
+//		System.out.println("====================================================");
+//		System.out.println("Evaluation result on testing set:");
+//		System.out.println(evaluation.toSummaryString());
+//		String detailedMatrix = evaluation.toClassDetailsString();
+//		System.out.println("====================================================");
+//		AttributeStats attStats = testset.attributeStats(testset.numAttributes()-1);
+//		System.out.println("Instance statistics:");
+//		System.out.println(attStats.toString());
+		
+		
+//	    System.out.println(String.format("AUROC is => %d", auroc));
+//	    System.out.println(String.format("detailed matrix is => %s", detailedMatrix));
+//		double[][] confusionmatrix = evaluation.confusionMatrix();
+//		
+//		double test_a = confusionmatrix[0][0];
+//		double test_c = confusionmatrix[0][1];
+//		double test_b = confusionmatrix[1][0];
+//	    double test_d = confusionmatrix[1][1];
+//	    System.out.println("True Positive: " + confusionmatrix[0][0] + "| False Positive: " + confusionmatrix[0][1] ); // TP
+////	    System.out.println(); // FP
+//	    System.out.println("False Negative: " +confusionmatrix[1][0] + "| True Negative: " + confusionmatrix[1][1]); // FN
+////	    System.out.println(); // TN
+//	    CalculateAllMatrix(test_a,test_b,test_c,test_d);
+	    
+	    System.out.println("True Positive: " + TP + "| False Positive: " + FP ); // TP
 //	    System.out.println(); // FP
-	    System.out.println("False Negative: " +confusionmatrix[1][0] + "| True Negative: " + confusionmatrix[1][1]); // FN
+	    System.out.println("False Negative: " + FN + "| True Negative: " + TN); // FN
 //	    System.out.println(); // TN
-	    CalculateAllMatrix(test_a,test_b,test_c,test_d);
+	    CalculateAllMatrix(TP,FN,FP,TN);
+	    
+	    
+	    
 	    System.out.println("====================================================");
+	}
+	
+	
+	/**
+	 * put non/negative class at end
+	 * @param dataset
+	 * @return
+	 * @throws Exception 
+	 */
+	public Instances ReorderInstances(Instances dataset) throws Exception {
+		
+		SwapValues sp = new SwapValues();
+		String attstats = dataset.attribute(dataset.numAttributes()-1).toString();
+		String[] attstats_split = attstats.replace("@attribute Class {", "").replace("}", "").split(",");
+//		System.out.println(dataset.attribute(dataset.numAttributes() - 1).toString());
+		if (attstats_split[0].contains("non-")) {
+			sp.setAttributeIndex(Integer.toString(dataset.numAttributes()));
+			sp.setFirstValueIndex("first");
+			sp.setSecondValueIndex("last");
+			sp.setInputFormat(dataset);
+			dataset = Filter.useFilter(dataset, sp);
+		}
+		return dataset;
 	}
 
 	/**
@@ -149,7 +230,15 @@ public class DrugExporterWorkFlow
 	public Classifier GenerateCostSensitiveClassifier(Instances dataset, CostMatrix cm) throws Exception {
 		
 		
+//		input_dataset.setClass(input_dataset.attribute(input_dataset.numAttributes()-1));
+//		Instances dataset = ReorderInstances(input_dataset);
+//		dataset.setClass(dataset.attribute(dataset.numAttributes()-1));
 		dataset.setClass(dataset.attribute(dataset.numAttributes()-1));
+
+		
+		
+		
+		
 		System.out.println(dataset.attribute(dataset.numAttributes()-1).toString());
 		AttributeStats attStats = dataset.attributeStats(dataset.numAttributes()-1);
 		System.out.println("====================================================");
@@ -176,6 +265,8 @@ public class DrugExporterWorkFlow
 		
 		CostSensitiveClassifier classifier = new CostSensitiveClassifier();
 		classifier.setCostMatrix(cm);
+		// set true if using cost matrix that is not default
+		classifier.setMinimizeExpectedCost(true);
 		
 		// set base learner = random forest
 		RandomForest rf = new RandomForest();
@@ -201,10 +292,8 @@ public class DrugExporterWorkFlow
 	    double c = confusionmatrix[0][1];
 	    double b = confusionmatrix[1][0];
 	    double d = confusionmatrix[1][1];
-	    System.out.println("True Positive: " + confusionmatrix[0][0] + "| False Positive: " + confusionmatrix[0][1] ); // TP
-//	    System.out.println(); // FP
-	    System.out.println("False Negative: " +confusionmatrix[1][0] + "| True Negative: " +confusionmatrix[1][1]); // FN
-//	    System.out.println(); // TN
+	    System.out.println("True Positive: " + confusionmatrix[0][0] + "| False Positive: " + confusionmatrix[0][1] ); 
+	    System.out.println("False Negative: " +confusionmatrix[1][0] + "| True Negative: " +confusionmatrix[1][1]); 
 	    if (reverse == true) {
 	    	// negative class is at front, change the order
 	    	//  true negative (d) => true positive; 
@@ -270,6 +359,22 @@ public class DrugExporterWorkFlow
 		dataset = Filter.useFilter(dataset, removeuseless);
 		
 		System.out.println(String.format("Number of attribute after remove useless type => %d", dataset.numAttributes()));
+		
+		System.out.println("Swap values");
+		SwapValues sp = new SwapValues();
+		String attstats = dataset.attribute(dataset.numAttributes()-1).toString();
+		String[] attstats_split = attstats.replace("@attribute Class {", "").replace("}", "").split(",");
+//		System.out.println(dataset.attribute(dataset.numAttributes() - 1).toString());
+		if (attstats_split[0].contains("non-")) {
+			sp.setAttributeIndex(Integer.toString(dataset.numAttributes()));
+			sp.setFirstValueIndex("first");
+			sp.setSecondValueIndex("last");
+			sp.setInputFormat(dataset);
+			dataset = Filter.useFilter(dataset, sp);
+		}
+		
+		
+		
 		return dataset;
 	}
 	
@@ -283,13 +388,14 @@ public class DrugExporterWorkFlow
 		String current_dir = System.getProperty("user.dir");
 		try {
 			Instances dataset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, 
-					"BCRP_binding_dataset_3DFile_3D_descriptor_value_training.csv"));
+					"ATP_binding_cassette_sub_family_G_member_2_non_duplicate_substrate_3DFile_3D_descriptor_value_training.csv"));
 			Instances dataset_filtered = dewf.AttributeFilteringEngineering(dataset);
 			
 			
 			// set cost matrix
+			double cost = 2.0;
 			CostMatrix costmatrix = new CostMatrix(2);
-			costmatrix.setCell(0, 1, 25.0);
+			costmatrix.setCell(0, 1, cost);
 			costmatrix.setCell(1, 0, 1.0);
 			
 			Classifier classified = dewf.GenerateCostSensitiveClassifier(dataset_filtered,costmatrix);
@@ -319,8 +425,8 @@ public class DrugExporterWorkFlow
 			
 			// do testing 
 			Instances trainingset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, 
-					"BCRP_binding_dataset_3DFile_3D_descriptor_value_testing.csv"));
-			dewf.PerformTestEvaluation(dataset_filtered, trainingset, classified);
+					"ATP_binding_cassette_sub_family_G_member_2_non_duplicate_substrate_3DFile_3D_descriptor_value_testing.csv"));
+			dewf.PerformTestEvaluation(dataset_filtered, trainingset, classified, cost);
 			
 			
 			

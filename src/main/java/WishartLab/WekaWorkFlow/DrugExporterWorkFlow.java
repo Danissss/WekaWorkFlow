@@ -2,8 +2,6 @@ package WishartLab.WekaWorkFlow;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Random;
 
 import weka.classifiers.Classifier;
@@ -11,9 +9,7 @@ import weka.classifiers.CostMatrix;
 import weka.classifiers.Evaluation;
 import weka.classifiers.meta.CostSensitiveClassifier;
 import weka.classifiers.trees.RandomForest;
-import weka.core.Attribute;
 import weka.core.AttributeStats;
-import weka.core.FastVector;
 import weka.core.Instances;
 import weka.core.converters.CSVLoader;
 import weka.filters.Filter;
@@ -28,7 +24,49 @@ import weka.filters.unsupervised.attribute.SwapValues;
 public class DrugExporterWorkFlow 
 {
 	
-	
+	// weka crossValidateModel function
+//	public void crossValidateModel(Classifier classifier, Instances data, int numFolds, Random random, Object... forPrinting) throws Exception {
+//
+//		// Make a copy of the data we can reorder
+//		data = new Instances(data);
+//		data.randomize(random);
+//		if (data.classAttribute().isNominal()) {
+//			data.stratify(numFolds);
+//		}
+//
+//		// We assume that the first element is a
+//		// weka.classifiers.evaluation.output.prediction.AbstractOutput object
+//		AbstractOutput classificationOutput = null;
+//		if (forPrinting.length > 0 && forPrinting[0] instanceof AbstractOutput) {
+//			// print the header first
+//			classificationOutput = (AbstractOutput) forPrinting[0];
+//			classificationOutput.setHeader(data);
+//			classificationOutput.printHeader();
+//		}
+//
+//		// Do the folds
+//		for (int i = 0; i < numFolds; i++) {
+//			Instances train = data.trainCV(numFolds, i, random);
+//			setPriors(train);
+//			Classifier copiedClassifier = AbstractClassifier.makeCopy(classifier);
+//			copiedClassifier.buildClassifier(train);
+//			if (classificationOutput == null && forPrinting.length > 0) {
+//				((StringBuffer)forPrinting[0]).append("\n=== Classifier model (training fold " + (i + 1) +") ===\n\n" +
+//						copiedClassifier);
+//			}
+//			Instances test = data.testCV(numFolds, i);
+//			if (classificationOutput != null){
+//				evaluateModel(copiedClassifier, test, forPrinting);
+//			} else {
+//				evaluateModel(copiedClassifier, test);
+//			}
+//		}
+//		m_NumFolds = numFolds;
+//
+//		if (classificationOutput != null) {
+//			classificationOutput.printFooter();
+//		}
+//	}
 	
 	
 	/**
@@ -105,7 +143,14 @@ public class DrugExporterWorkFlow
 	    
 	}
 	
-	
+	/**
+	 * 
+	 * @param dataset
+	 * @param testset
+	 * @param clf
+	 * @param cost
+	 * @throws Exception
+	 */
 	public void PerformTestEvaluation(Instances dataset, Instances testset, Classifier clf, double cost) throws Exception {
 		dataset.setClass(dataset.attribute(dataset.numAttributes()-1));
 		testset.setClass(testset.attribute(testset.numAttributes()-1));
@@ -118,10 +163,9 @@ public class DrugExporterWorkFlow
 		System.out.println(attStats.toString());
 		
 		
-//		Evaluation evaluation = new Evaluation(testset);
-		
-//		evaluation.evaluateModel(clf, testset);
-//		System.out.println(1/cost);
+		Classifier classifier = new RandomForest();
+		classifier.buildClassifier(dataset);
+
 		
 		int TP = 0;
 		int FN = 0;
@@ -129,66 +173,34 @@ public class DrugExporterWorkFlow
 		int FP = 0;
 		
 		for(int i = 0; i < testset.size(); i++) {
-			double original_class = testset.instance(i).classValue();
 			String original_class_string = testset.instance(i).stringValue(testset.numAttributes()-1);
-//			System.out.println(original_class +":" + original_class_string);
-			double[] resultList = clf.distributionForInstance(testset.instance(i));
-			System.out.println(Arrays.toString(resultList));
-			double resultList2 = clf.classifyInstance(testset.instance(i));
-			System.out.println(resultList2 + ":" + original_class_string);
-			if (resultList[0] > (1/cost)) {
+			double[] resultList = classifier.distributionForInstance(testset.instance(i));
+
+			if (resultList[0] >= (1/(1+cost))) {
 				// predict as true
 				if(!original_class_string.contains("non-")) {
 					// True Positive
 					TP++;
 				}else {
-					// False Negative
-					FN++;
+					// False Positive
+					FP++;
 				}
 				
 			}else {
-//				System.out.println("false: "+ resultList[0]);
 				if(original_class_string.contains("non-")) {
 					// True Negative
 					TN++;
 					
 				}else {
-					// False Positive
-					FP++;
+					// False Negative
+					FN++;
 				}
 			}
+			
 		}
-		
-		
-		
-//		System.out.println("====================================================");
-//		System.out.println("Evaluation result on testing set:");
-//		System.out.println(evaluation.toSummaryString());
-//		String detailedMatrix = evaluation.toClassDetailsString();
-//		System.out.println("====================================================");
-//		AttributeStats attStats = testset.attributeStats(testset.numAttributes()-1);
-//		System.out.println("Instance statistics:");
-//		System.out.println(attStats.toString());
-		
-		
-//	    System.out.println(String.format("AUROC is => %d", auroc));
-//	    System.out.println(String.format("detailed matrix is => %s", detailedMatrix));
-//		double[][] confusionmatrix = evaluation.confusionMatrix();
-//		
-//		double test_a = confusionmatrix[0][0];
-//		double test_c = confusionmatrix[0][1];
-//		double test_b = confusionmatrix[1][0];
-//	    double test_d = confusionmatrix[1][1];
-//	    System.out.println("True Positive: " + confusionmatrix[0][0] + "| False Positive: " + confusionmatrix[0][1] ); // TP
-////	    System.out.println(); // FP
-//	    System.out.println("False Negative: " +confusionmatrix[1][0] + "| True Negative: " + confusionmatrix[1][1]); // FN
-////	    System.out.println(); // TN
-//	    CalculateAllMatrix(test_a,test_b,test_c,test_d);
 	    
 	    System.out.println("True Positive: " + TP + "| False Positive: " + FP ); // TP
-//	    System.out.println(); // FP
 	    System.out.println("False Negative: " + FN + "| True Negative: " + TN); // FN
-//	    System.out.println(); // TN
 	    CalculateAllMatrix(TP,FN,FP,TN);
 	    
 	    
@@ -206,6 +218,11 @@ public class DrugExporterWorkFlow
 	public Instances ReorderInstances(Instances dataset) throws Exception {
 		
 		SwapValues sp = new SwapValues();
+//		for(int i =1; i <6; i++) {
+//			training = dataset.trainCV(5, i);
+//			testing =dataset.testCV(5, i)
+//					
+//		}
 		String attstats = dataset.attribute(dataset.numAttributes()-1).toString();
 		String[] attstats_split = attstats.replace("@attribute Class {", "").replace("}", "").split(",");
 //		System.out.println(dataset.attribute(dataset.numAttributes() - 1).toString());
@@ -227,12 +244,8 @@ public class DrugExporterWorkFlow
 	 * @return
 	 * @throws Exception 
 	 */
-	public Classifier GenerateCostSensitiveClassifier(Instances dataset, CostMatrix cm) throws Exception {
+	public Classifier GenerateCostSensitiveClassifier(Instances dataset, CostMatrix cm, double cost) throws Exception {
 		
-		
-//		input_dataset.setClass(input_dataset.attribute(input_dataset.numAttributes()-1));
-//		Instances dataset = ReorderInstances(input_dataset);
-//		dataset.setClass(dataset.attribute(dataset.numAttributes()-1));
 		dataset.setClass(dataset.attribute(dataset.numAttributes()-1));
 
 		
@@ -253,16 +266,6 @@ public class DrugExporterWorkFlow
 			
 		
 		
-		// create new attribute order
-//		FastVector class_vec = new FastVector(2);
-//		class_vec.addElement("substrate");
-//		class_vec.addElement("non-substrate");
-//		Attribute reordered_attribute = new Attribute("Class",class_vec);
-//		dataset.deleteAttributeAt(dataset.numAttributes() - 1);
-//		dataset.insertAttributeAt(reordered_attribute, dataset.numAttributes());
-//		dataset.setClass(dataset.attribute(dataset.numAttributes()-1));
-//		System.out.println(dataset.classAttribute().toString());
-		
 		CostSensitiveClassifier classifier = new CostSensitiveClassifier();
 		classifier.setCostMatrix(cm);
 		// set true if using cost matrix that is not default
@@ -274,7 +277,81 @@ public class DrugExporterWorkFlow
 		
 		// build classifier
 		classifier.buildClassifier(dataset);
+		
+		// do Cross Validation manually
+		int TP = 0;
+		int FN = 0;
+		int TN = 0;
+		int FP = 0;
+		int folds = 10;
+		for (int n = 0; n < folds; n++) {
+			Instances train = dataset.trainCV(folds, n);
+//			System.out.println("size of train => " + train.size());
+			Instances test = dataset.testCV(folds, n);
+//			System.out.println("size of test => " + test.size());
 			
+			
+			
+			
+			
+			
+			
+			// build the classifier
+			CostSensitiveClassifier cv_classifier = new CostSensitiveClassifier();
+			cv_classifier.setCostMatrix(cm);
+			cv_classifier.setMinimizeExpectedCost(true);
+			RandomForest cv_rf = new RandomForest();
+			cv_classifier.setClassifier(cv_rf);
+			cv_classifier.buildClassifier(train);
+			
+			
+			
+//			Evaluation evaluation = new Evaluation(train);
+//	        evaluation.evaluateModel(cv_classifier, test);
+//	        System.out.println(evaluation.toSummaryString());
+	        
+	        
+			// test the testing set
+			for(int i = 0; i < test.size(); i++) {
+				String original_class_string = test.instance(i).stringValue(test.numAttributes()-1);
+				
+		        // false positive is: it is wrong, it predicted right
+				// false negative is: it is right, but predicted wrong 
+//				test.instance(i).setValue(test.numAttributes()-1, "?");
+				double result = cv_classifier.classifyInstance(test.instance(i));
+				
+				if(original_class_string.contains("non-")) {
+					// it is negative
+					if(result == 1.0) {
+						// it is wrong, it predicted right => false positive
+						FP++;
+					}else if (result == 0.0) {
+						// it is wrong, it predicted wrong => true negative
+						TN++;
+					}
+				}else if(!original_class_string.contains("non-")) {
+					// it is positive
+					if(result == 1.0) {
+						// it is right, predicted right
+						TP++;
+					}else if (result == 0.0) {
+						// false negative is: it is right, but predicted wrong 
+						FN++;
+					}
+					
+				}
+			}
+			
+		}
+		
+		System.out.println("======== manual cross validation ===================");
+		System.out.println("True Positive: " + TP +  "| False Positive: " + FP ); // TP
+	    System.out.println("False Negative: " + FN + "| True Negative: " + TN); // FN
+	    CalculateAllMatrix(TP,FN,FP,TN);
+	    System.out.println("====================================================");
+	    
+	    
+	    
 		// do evaluation on current dataset and classifier
 		Evaluation evaluation = new Evaluation(dataset);
 		// this evaluation is based on classifier that used under cross validation; 
@@ -294,17 +371,8 @@ public class DrugExporterWorkFlow
 	    double d = confusionmatrix[1][1];
 	    System.out.println("True Positive: " + confusionmatrix[0][0] + "| False Positive: " + confusionmatrix[0][1] ); 
 	    System.out.println("False Negative: " +confusionmatrix[1][0] + "| True Negative: " +confusionmatrix[1][1]); 
-	    if (reverse == true) {
-	    	// negative class is at front, change the order
-	    	//  true negative (d) => true positive; 
-	    	//  false negative (b) => false positive;
-	    	// true positive (a) => true negative;
-	    	// false positive (c) => false negative);
-	    	CalculateAllMatrix(d,c,b,a);
-	    }else {
-	    	// positive class is at front, don't change order 
-	    	CalculateAllMatrix(a,b,c,d);
-	    }
+	    
+	    CalculateAllMatrix(a,b,c,d);
 	    
 	    
 	    
@@ -388,17 +456,17 @@ public class DrugExporterWorkFlow
 		String current_dir = System.getProperty("user.dir");
 		try {
 			Instances dataset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, 
-					"ATP_binding_cassette_sub_family_G_member_2_non_duplicate_substrate_3DFile_3D_descriptor_value_training.csv"));
+					"Multidrug_resistance_associated_protein_1_MRP1_non_duplicate_substrate_3DFile_3D_descriptor_value_training.csv"));
 			Instances dataset_filtered = dewf.AttributeFilteringEngineering(dataset);
 			
 			
 			// set cost matrix
-			double cost = 2.0;
+			double cost = 1.0;
 			CostMatrix costmatrix = new CostMatrix(2);
 			costmatrix.setCell(0, 1, cost);
 			costmatrix.setCell(1, 0, 1.0);
 			
-			Classifier classified = dewf.GenerateCostSensitiveClassifier(dataset_filtered,costmatrix);
+			Classifier classified = dewf.GenerateCostSensitiveClassifier(dataset_filtered,costmatrix,cost);
 			
 			
 //			System.exit(0);

@@ -247,8 +247,7 @@ public class DrugExporterWorkFlow
 	public Classifier GenerateCostSensitiveClassifier(Instances dataset, CostMatrix cm, double cost) throws Exception {
 		
 		dataset.setClass(dataset.attribute(dataset.numAttributes()-1));
-
-		
+		dataset.randomize(new Random());
 		
 		
 		
@@ -257,28 +256,14 @@ public class DrugExporterWorkFlow
 		System.out.println("====================================================");
 		System.out.println("Instance statistics:");
 		System.out.println(attStats.toString());
-		String attstats = dataset.attribute(dataset.numAttributes()-1).toString();
-		String[] attstats_split = attstats.replace("@attribute Class {", "").replace("}", "").split(",");
-		boolean reverse = false;
-		if(attstats_split[0].contains("non-")) {
-			reverse = true;
-		}
-			
+//		String attstats = dataset.attribute(dataset.numAttributes()-1).toString();
+//		String[] attstats_split = attstats.replace("@attribute Class {", "").replace("}", "").split(",");
+//		boolean reverse = false;
+//		if(attstats_split[0].contains("non-")) {
+//			reverse = true;
+//		}
 		
-		
-		CostSensitiveClassifier classifier = new CostSensitiveClassifier();
-		classifier.setCostMatrix(cm);
-		// set true if using cost matrix that is not default
-		classifier.setMinimizeExpectedCost(true);
-		
-		// set base learner = random forest
-		RandomForest rf = new RandomForest();
-		classifier.setClassifier(rf);
-		
-		// build classifier
-		classifier.buildClassifier(dataset);
-		
-		// do Cross Validation manually
+		//CV
 		int TP = 0;
 		int FN = 0;
 		int TN = 0;
@@ -289,12 +274,6 @@ public class DrugExporterWorkFlow
 //			System.out.println("size of train => " + train.size());
 			Instances test = dataset.testCV(folds, n);
 //			System.out.println("size of test => " + test.size());
-			
-			
-			
-			
-			
-			
 			
 			// build the classifier
 			CostSensitiveClassifier cv_classifier = new CostSensitiveClassifier();
@@ -314,29 +293,32 @@ public class DrugExporterWorkFlow
 			// test the testing set
 			for(int i = 0; i < test.size(); i++) {
 				String original_class_string = test.instance(i).stringValue(test.numAttributes()-1);
+				// System.out.println(original_class_string);
 				
 		        // false positive is: it is wrong, it predicted right
 				// false negative is: it is right, but predicted wrong 
 //				test.instance(i).setValue(test.numAttributes()-1, "?");
-				double result = cv_classifier.classifyInstance(test.instance(i));
 				
-				if(original_class_string.contains("non-")) {
+				double result = cv_classifier.classifyInstance(test.instance(i));
+				// System.out.println(result);
+				// System.out.println("----------------------------------------------------------------------------");
+				if(original_class_string.contains("non-") || original_class_string.contains("Non-")) {
 					// it is negative
 					if(result == 1.0) {
 						// it is wrong, it predicted right => false positive
-						FP++;
+						TN++;
 					}else if (result == 0.0) {
 						// it is wrong, it predicted wrong => true negative
-						TN++;
+						FP++;
 					}
-				}else if(!original_class_string.contains("non-")) {
+				}else if(!original_class_string.contains("non-") && !original_class_string.contains("Non-")) {
 					// it is positive
 					if(result == 1.0) {
 						// it is right, predicted right
-						TP++;
+						FN++;
 					}else if (result == 0.0) {
 						// false negative is: it is right, but predicted wrong 
-						FN++;
+						TP++;
 					}
 					
 				}
@@ -351,6 +333,13 @@ public class DrugExporterWorkFlow
 	    System.out.println("====================================================");
 	    
 	    
+	    
+	    CostSensitiveClassifier classifier = new CostSensitiveClassifier();
+		RandomForest rf = new RandomForest();
+		classifier.setClassifier(rf);
+		classifier.setCostMatrix(cm);
+		classifier.setMinimizeExpectedCost(true);
+		classifier.buildClassifier(dataset);
 	    
 		// do evaluation on current dataset and classifier
 		Evaluation evaluation = new Evaluation(dataset);
@@ -428,12 +417,13 @@ public class DrugExporterWorkFlow
 		
 		System.out.println(String.format("Number of attribute after remove useless type => %d", dataset.numAttributes()));
 		
+		
 		System.out.println("Swap values");
 		SwapValues sp = new SwapValues();
 		String attstats = dataset.attribute(dataset.numAttributes()-1).toString();
 		String[] attstats_split = attstats.replace("@attribute Class {", "").replace("}", "").split(",");
 //		System.out.println(dataset.attribute(dataset.numAttributes() - 1).toString());
-		if (attstats_split[0].contains("non-")) {
+		if (attstats_split[0].contains("non-") || attstats_split[0].contains("Non-")) {
 			sp.setAttributeIndex(Integer.toString(dataset.numAttributes()));
 			sp.setFirstValueIndex("first");
 			sp.setSecondValueIndex("last");

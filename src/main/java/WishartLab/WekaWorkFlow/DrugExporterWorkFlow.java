@@ -69,44 +69,7 @@ public class DrugExporterWorkFlow
 //	}
 	
 	
-	/**
-	 * running cost sensitive based on given dataset, cost matrix and classifier
-	 * @param dataset
-	 * @param cm
-	 * @param cf
-	 * @return
-	 * @throws Exception 
-	 */
-	public Classifier GenerateCostSensitiveClassifier(Instances dataset) throws Exception {
-			
-		
-		dataset.setClass(dataset.attribute(dataset.numAttributes()-1));
-		
-		CostSensitiveClassifier classifier = new CostSensitiveClassifier();
-		
-		
-		// create default cost matrix of a particular size
-		CostMatrix costmatrix = new CostMatrix(2);
-		classifier.setCostMatrix(costmatrix);
-		
-		// set base learner = random forest
-		RandomForest rf = new RandomForest();
-		classifier.setClassifier(rf);
-		
-		// build classifier
-		classifier.buildClassifier(dataset);
-			
-		// do evaluation on current dataset and classifier
-		Evaluation evaluation = new Evaluation(dataset);
-		evaluation.crossValidateModel(classifier, dataset, 10, new Random(1));
-		System.out.println("====================================================");
-		System.out.println("Evaluation result:");
-	    System.out.println(evaluation.toSummaryString());
-	    System.out.println("====================================================");
-	    
-		return classifier;
-		
-	}
+
 	
 	
 	/**
@@ -161,10 +124,6 @@ public class DrugExporterWorkFlow
 		AttributeStats attStats = testset.attributeStats(testset.numAttributes()-1);
 		System.out.println("Instance statistics:");
 		System.out.println(attStats.toString());
-		
-		
-		Classifier classifier = new RandomForest();
-		classifier.buildClassifier(dataset);
 
 		
 		int TP = 0;
@@ -174,28 +133,49 @@ public class DrugExporterWorkFlow
 		
 		for(int i = 0; i < testset.size(); i++) {
 			String original_class_string = testset.instance(i).stringValue(testset.numAttributes()-1);
-			double[] resultList = classifier.distributionForInstance(testset.instance(i));
-
-			if (resultList[0] >= (1/(1+cost))) {
-				// predict as true
-				if(!original_class_string.contains("non-")) {
-					// True Positive
-					TP++;
-				}else {
-					// False Positive
+			double result = clf.classifyInstance(testset.instance(i));
+			
+			if(original_class_string.contains("non-") || original_class_string.contains("Non-")) {
+				// it is negative
+				if(result == 1.0) {
+					// it is wrong, it predicted right => false positive
+					TN++;
+				}else if (result == 0.0) {
+					// it is wrong, it predicted wrong => true negative
 					FP++;
 				}
-				
-			}else {
-				if(original_class_string.contains("non-")) {
-					// True Negative
-					TN++;
-					
-				}else {
-					// False Negative
+			}else if(!original_class_string.contains("non-") && !original_class_string.contains("Non-")) {
+				// it is positive
+				if(result == 1.0) {
+					// it is right, predicted right
 					FN++;
+				}else if (result == 0.0) {
+					// false negative is: it is right, but predicted wrong 
+					TP++;
 				}
+				
 			}
+			
+//			if (resultList[0] >= (1/(1+cost))) {
+//				// predict as true
+//				if(!original_class_string.contains("non-")) {
+//					// True Positive
+//					TP++;
+//				}else {
+//					// False Positive
+//					FP++;
+//				}
+//				
+//			}else {
+//				if(original_class_string.contains("non-")) {
+//					// True Negative
+//					TN++;
+//					
+//				}else {
+//					// False Negative
+//					FN++;
+//				}
+//			}
 			
 		}
 	    
@@ -218,11 +198,6 @@ public class DrugExporterWorkFlow
 	public Instances ReorderInstances(Instances dataset) throws Exception {
 		
 		SwapValues sp = new SwapValues();
-//		for(int i =1; i <6; i++) {
-//			training = dataset.trainCV(5, i);
-//			testing =dataset.testCV(5, i)
-//					
-//		}
 		String attstats = dataset.attribute(dataset.numAttributes()-1).toString();
 		String[] attstats_split = attstats.replace("@attribute Class {", "").replace("}", "").split(",");
 //		System.out.println(dataset.attribute(dataset.numAttributes() - 1).toString());
@@ -253,15 +228,9 @@ public class DrugExporterWorkFlow
 		
 		System.out.println(dataset.attribute(dataset.numAttributes()-1).toString());
 		AttributeStats attStats = dataset.attributeStats(dataset.numAttributes()-1);
-		System.out.println("====================================================");
+		System.out.println("=========================================================");
 		System.out.println("Instance statistics:");
 		System.out.println(attStats.toString());
-//		String attstats = dataset.attribute(dataset.numAttributes()-1).toString();
-//		String[] attstats_split = attstats.replace("@attribute Class {", "").replace("}", "").split(",");
-//		boolean reverse = false;
-//		if(attstats_split[0].contains("non-")) {
-//			reverse = true;
-//		}
 		
 		//CV
 		int TP = 0;
@@ -271,9 +240,8 @@ public class DrugExporterWorkFlow
 		int folds = 10;
 		for (int n = 0; n < folds; n++) {
 			Instances train = dataset.trainCV(folds, n);
-//			System.out.println("size of train => " + train.size());
 			Instances test = dataset.testCV(folds, n);
-//			System.out.println("size of test => " + test.size());
+
 			
 			// build the classifier
 			CostSensitiveClassifier cv_classifier = new CostSensitiveClassifier();
@@ -283,11 +251,6 @@ public class DrugExporterWorkFlow
 			cv_classifier.setClassifier(cv_rf);
 			cv_classifier.buildClassifier(train);
 			
-			
-			
-//			Evaluation evaluation = new Evaluation(train);
-//	        evaluation.evaluateModel(cv_classifier, test);
-//	        System.out.println(evaluation.toSummaryString());
 	        
 	        
 			// test the testing set
@@ -326,11 +289,11 @@ public class DrugExporterWorkFlow
 			
 		}
 		
-		System.out.println("======== manual cross validation ===================");
+		System.out.println("======== manual cross validation ========================");
 		System.out.println("True Positive: " + TP +  "| False Positive: " + FP ); // TP
 	    System.out.println("False Negative: " + FN + "| True Negative: " + TN); // FN
 	    CalculateAllMatrix(TP,FN,FP,TN);
-	    System.out.println("====================================================");
+	    System.out.println("=========================================================");
 	    
 	    
 	    
@@ -345,23 +308,23 @@ public class DrugExporterWorkFlow
 		Evaluation evaluation = new Evaluation(dataset);
 		// this evaluation is based on classifier that used under cross validation; 
 		evaluation.crossValidateModel(classifier, dataset, 10, new Random(1));
-		System.out.println("====================================================");
+		System.out.println("======== automatically cross validation =================");
 		System.out.println("Evaluation result:");
 	    System.out.println(evaluation.toSummaryString());
-	    System.out.println("====================================================");
+	    System.out.println("=========================================================");
 	    
 	    
 	    
 	    
 	    double[][] confusionmatrix = evaluation.confusionMatrix();
-	    double a = confusionmatrix[0][0];
-	    double c = confusionmatrix[0][1];
-	    double b = confusionmatrix[1][0];
-	    double d = confusionmatrix[1][1];
-	    System.out.println("True Positive: " + confusionmatrix[0][0] + "| False Positive: " + confusionmatrix[0][1] ); 
-	    System.out.println("False Negative: " +confusionmatrix[1][0] + "| True Negative: " +confusionmatrix[1][1]); 
+	    double TP_ = confusionmatrix[0][0];
+	    double FN_ = confusionmatrix[0][1];
+	    double FP_ = confusionmatrix[1][0];
+	    double TN_ = confusionmatrix[1][1];
+	    System.out.println("True Positive: " + confusionmatrix[0][0] + "| False Positive: " + confusionmatrix[1][0] ); 
+	    System.out.println("False Negative: " +confusionmatrix[0][1] + "| True Negative: " +confusionmatrix[1][1]); 
 	    
-	    CalculateAllMatrix(a,b,c,d);
+	    CalculateAllMatrix(TP_,FN_,FP_,TN_);
 	    
 	    
 	    
@@ -387,10 +350,9 @@ public class DrugExporterWorkFlow
 		
 		CSVLoader csvloader = new CSVLoader();
 		csvloader.setSource(new File(csvfile));
-		System.out.println("====================================================");
+		System.out.println("=========================================================");
 		System.out.println(String.format("%s is loaded.", csvfile));
 		Instances data = csvloader.getDataSet();
-		
 		return data;
 		
 	}
@@ -439,22 +401,25 @@ public class DrugExporterWorkFlow
 	
 	
 	
-	
+	/**
+	 * 
+	 * @param args
+	 */
     public static void main( String[] args )
     {
-    	DrugExporterWorkFlow dewf = new DrugExporterWorkFlow();
+    		DrugExporterWorkFlow dewf = new DrugExporterWorkFlow();
 		String current_dir = System.getProperty("user.dir");
 		try {
 			Instances dataset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, 
-					"Multidrug_resistance_associated_protein_1_MRP1_non_duplicate_substrate_3DFile_3D_descriptor_value_training.csv"));
+					"ATP_binding_cassette_sub_family_G_member_2_non_duplicate_inhibitor_3DFile_3D_descriptor_value_training.csv"));
 			Instances dataset_filtered = dewf.AttributeFilteringEngineering(dataset);
 			
 			
 			// set cost matrix
 			double cost = 1.0;
 			CostMatrix costmatrix = new CostMatrix(2);
-			costmatrix.setCell(0, 1, cost);
-			costmatrix.setCell(1, 0, 1.0);
+			costmatrix.setCell(0, 1, 1.0);
+			costmatrix.setCell(1, 0, cost);
 			
 			Classifier classified = dewf.GenerateCostSensitiveClassifier(dataset_filtered,costmatrix,cost);
 			
@@ -483,7 +448,7 @@ public class DrugExporterWorkFlow
 			
 			// do testing 
 			Instances trainingset = dewf.ConvertCSVToInstances(String.format("%s/Dataset/%s", current_dir, 
-					"ATP_binding_cassette_sub_family_G_member_2_non_duplicate_substrate_3DFile_3D_descriptor_value_testing.csv"));
+					"ATP_binding_cassette_sub_family_G_member_2_non_duplicate_inhibitor_3DFile_3D_descriptor_value_testing.csv"));
 			dewf.PerformTestEvaluation(dataset_filtered, trainingset, classified, cost);
 			
 			
